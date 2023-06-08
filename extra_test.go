@@ -2,6 +2,7 @@ package goldmark_test
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"strconv"
 	"strings"
@@ -13,6 +14,7 @@ import (
 	"github.com/yuin/goldmark/parser"
 	"github.com/yuin/goldmark/renderer/html"
 	"github.com/yuin/goldmark/testutil"
+	"github.com/yuin/goldmark/util"
 )
 
 var testTimeoutMultiplier = 1.0
@@ -73,8 +75,7 @@ func TestWindowsNewLine(t *testing.T) {
 	}
 }
 
-type myIDs struct {
-}
+type myIDs struct{}
 
 func (s *myIDs) Generate(value []byte, kind ast.NodeKind) []byte {
 	return []byte("my-id")
@@ -201,5 +202,48 @@ func TestManyCommentPerformance(t *testing.T) {
 	finished := nowMillis()
 	if (finished - started) > int64(5000*testTimeoutMultiplier) {
 		t.Error("Parsing processing instructions took too long")
+	}
+}
+
+func TestFindEmailIndex(t *testing.T) {
+	tests := []struct {
+		tname string
+		input string
+		want  int
+	}{
+		{
+			tname: "not an email",
+			input: "apk-mitm@1.1.0",
+			want:  -1,
+		},
+		{
+			tname: "go package",
+			input: "github.com/yuin/goldmark@latest",
+			want:  -1,
+		},
+		{
+			tname: "common url",
+			input: "www.google.com",
+			want:  -1,
+		},
+		{
+			tname: "common email",
+			input: "test@example.com",
+			want:  16,
+		},
+		{
+			tname: "uncommon email",
+			input: "test@charm.sh",
+			want:  13,
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.tname, func(t *testing.T) {
+			got := util.FindEmailIndex([]byte(tc.input))
+			if got != tc.want {
+				fmt.Println(len(tc.input))
+				t.Fatalf("got != want. got = %v, want = %v", got, tc.want)
+			}
+		})
 	}
 }
